@@ -1,0 +1,4 @@
+TODO: Add RSpec tests here
+
+Not sure how to best test successful drush command execution with RSpec.
+Include a full Drupal core codebase with the repo? Ick.
