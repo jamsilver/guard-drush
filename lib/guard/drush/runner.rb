@@ -1,36 +1,44 @@
 module Guard
   class Drush
     class Runner
+      autoload :RunnerDrush4, 'guard/drush/runner_drush4'
+      autoload :RunnerDrush5, 'guard/drush/runner_drush5'
       attr_reader :drush_version
-      attr_reader :drush_alias
+      attr_reader :alias
 
       def initialize(options = {})
         @options = {
           :maintain_drush_output => true,
           :notification => true
         }.merge(options)
+
+        if drush_present?
+          # Detect drush version
+          if Gem::Version.new(drush_version) >= Gem::Version.new('5')
+            @drush_runner = RunnerDrush5.new(drush_alias);
+          else
+            @drush_runner = RunnerDrush4.new(drush_alias);
+          end
+        else
+          UI.error "Guard::Drush could not find drush. Please ensure it is in your PATH."
+          raise :task_has_failed
+        end
       end
 
       def run(paths, options = {})
         return false if paths.empty?
 
         options = @options.merge(options)
-        command = drush_command(paths, options);
+        command = %Q{#{options[:command]} "#{paths.join('" "')}"}
+        @drush_runner.run(command, options);
+      end
 
-        message = options[:message] || "Running: #{command}"
-        UI.info(message, :reset => true)
-
-        success = system(command);
-
-        if @options[:notification] && !success && drush_command_exited_with_an_exception?
-          Notifier.notify("Failed", :title => "Drush results", :image => :failed, :priority => 2);
-        end
-
-
+      def stop
+        @drush_runner.close
       end
 
       # Validates that drush is available on the shell
-      def is_drush_present?
+      def drush_present?
         `drush --version > /dev/null 2>&1`
         $?.success?
       end
@@ -51,7 +59,7 @@ module Guard
         cmd_parts << "#{drush_alias}" if drush_alias
         cmd_parts << "#{options[:command]}"
         cmd_parts += paths
-        cmd_parts << "> /dev/null 2>&1" if options[:maintain_drush_output]
+        cmd_parts << "> /dev/null 2>&1" if !options[:maintain_drush_output]
         cmd_parts.compact.join(' ');
       end
 
@@ -66,14 +74,20 @@ module Guard
 
       # Determine which drush @alias the user specified we should run under.
       # The following locations are looked in high -> low priority order until
-      # a valid alias is found.
-      #  1. @drush_alias-esque argument passed to the original guard call
-      #  2. Passes as the :drush_alias option
+      # a valid alias is found:
+      #  1. Passed as the :alias option
+      #  2. @drush_alias-esque argument passed to the original guard call
+      #  3. DRUSH_ALIAS environment variable
       def determine_drush_alias
 
         drush_alias = nil
 
-        # 1. Check through all command-line arguments to the initial `guard`
+        # 1. Failing that, look in the options
+        if @options.has_key?(:alias)
+          drush_alias = @options[:alias]
+        end
+
+        # 2. Check through all command-line arguments to the initial `guard`
         # call to see if the user supplied it there.
         # *edit*: OK, this doesn't work. Guard checks all it's options.
         #$*.each do |arg|
@@ -82,12 +96,13 @@ module Guard
         #  end
         #end
 
-        # 2. Failing that, look in the options
-        if !drush_alias && @options.has_key?(:drush_alias)
-          drush_alias = @options[:drush_alias]
+        # 3. Failing that, check for environment variable
+        if !drush_alias && ENV.has_key?('DRUSH_ALIAS')
+          drush_alias = ENV['DRUSH_ALIAS']
         end
 
-        return drush_alias ? drush_alias.strip : nil
+        # Ensure drush_alias begins with '@'
+        return drush_alias ? ('@' + drush_alias.strip.gsub(/^@/, '')) : nil
       end
 
     end

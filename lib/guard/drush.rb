@@ -4,6 +4,7 @@ require 'guard/guard'
 module Guard
   class Drush < Guard
     autoload :Runner,    'guard/drush/runner'
+    autoload :BackgroundTask,    'guard/drush/background_task'
 
     # Initialize a Guard.
     # @param [Array<Guard::Watcher>] watchers the Guard file watchers
@@ -16,7 +17,7 @@ module Guard
         # The @drush_alias to run the command as.
         # Can also be specified by supplying it directly with the guard command
         # E.g. `guard @my_drush_alias`
-        :drush_alias => nil,
+        :alias => nil,
       }.merge(options)
 
       @runner    = Runner.new(@options)
@@ -25,11 +26,7 @@ module Guard
     # Call once when Guard starts. Please override initialize method to init stuff.
     # @raise [:task_has_failed] when start has failed
     def start
-      # Validate that Drush is present
-      if !@runner.is_drush_present?
-        UI.error "Guard::Drush could not find drush. Please ensure it is in your PATH."
-        raise :task_has_failed
-      else
+      if @runner.drush_present?
         UI.info "Guard::Drush is running, with Drush #{@runner.drush_version}!"
       end
     end
@@ -37,6 +34,7 @@ module Guard
     # Called when `stop|quit|exit|s|q|e + enter` is pressed (when Guard quits).
     # @raise [:task_has_failed] when stop has failed
     def stop
+      @runner.stop
     end
 
     # Called when `reload|r|z + enter` is pressed.
