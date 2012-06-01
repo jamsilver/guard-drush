@@ -3,11 +3,12 @@ module Guard
     class RunnerDrush4
       autoload :DrushBackgroundTask, 'guard/drush/background_task'
 
-      def initialize(drush_alias)
+      def initialize(drush_alias, options = {})
         cmd_parts = []
         cmd_parts << 'drush'
         cmd_parts << drush_alias if drush_alias
-        cmd_parts << 'cli'
+        cmd_parts << 'live'
+        #cmd_parts << "> /dev/null 2>&1" if !options[:maintain_drush_output]
         @bg = DrushBackgroundTask.new(cmd_parts.join(' '))
       end
 
@@ -26,7 +27,6 @@ module Guard
         cmd_parts = []
         cmd_parts << "drush"
         cmd_parts << command
-        cmd_parts << "> /dev/null 2>&1" if !options[:maintain_drush_output]
         cmd_parts.compact.join(' ');
       end
 

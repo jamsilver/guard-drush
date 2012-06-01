@@ -15,9 +15,9 @@ module Guard
         if drush_present?
           # Detect drush version
           if Gem::Version.new(drush_version) >= Gem::Version.new('5')
-            @drush_runner = RunnerDrush5.new(drush_alias);
+            @drush_runner = RunnerDrush5.new(drush_alias, options);
           else
-            @drush_runner = RunnerDrush4.new(drush_alias);
+            @drush_runner = RunnerDrush4.new(drush_alias, options);
           end
         else
           UI.error "Guard::Drush could not find drush. Please ensure it is in your PATH."
@@ -29,6 +29,10 @@ module Guard
         return false if paths.empty?
 
         options = @options.merge(options)
+        # Escape " in paths as we use this to delimit them
+        paths.each_index {|i|
+          paths[i].gsub!(/"/, '\\"')
+        }
         command = %Q{#{options[:command]} "#{paths.join('" "')}"}
         @drush_runner.run(command, options);
       end
