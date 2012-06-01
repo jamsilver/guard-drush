@@ -11,7 +11,7 @@ module Guard
           # background process if it has problems
           ObjectSpace.define_finalizer(self, proc {
             # Indicates that close was not called
-            if !pipe.closed?
+            if @pipe && !@pipe.closed?
               @pipe.puts('')
               @pipe.puts('exit')
               Process.detach pid
@@ -25,7 +25,7 @@ module Guard
       end
 
       def close
-        if @pipe
+        if @pipe && !@pipe.closed?
           @pipe.puts('')
           @pipe.puts('exit')
           Process.detach @pipe.pid
@@ -35,14 +35,14 @@ module Guard
 
       # Write a line to the
       def writeLine(text)
-        if (@pipe)
+        if @pipe && !@pipe.closed?
           @pipe.puts(text)
         end
       end
 
       # Waits for timeout seconds and returns what was read in that time.
       def read(timeout = 1)
-        if @pipe
+        if @pipe && !@pipe.closed?
           if output = IO.select([@pipe], nil, nil, timeout)
             return output[0]
           end
