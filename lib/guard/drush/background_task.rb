@@ -11,14 +11,20 @@ module Guard
           # background process if it has problems
           ObjectSpace.define_finalizer(self, proc {
             # Indicates that close was not called
-            if @pipe && !@pipe.closed?
-              @pipe.puts('')
-              @pipe.puts('exit')
-              Process.detach pid
-              pipe.close
-            end
-            if pid
-              Process.kill 'TERM', pid
+            begin
+              if @pipe && !@pipe.closed?
+                @pipe.puts('')
+                @pipe.puts('exit')
+                Process.detach pid
+                pipe.close
+              end
+              if pid
+                Process.kill 'TERM', pid
+              end
+            rescue
+              # It's not uncommon for a long-running guard command to get a
+              # broken pipe error if there was an error in the background
+              # process.
             end
           })
         end
@@ -31,6 +37,9 @@ module Guard
           Process.detach @pipe.pid
           @pipe.close
         end
+      rescue
+        # It's not uncommon for a long-running guard command to get a broken
+        # pipe error if there was an error in the background process
       end
 
       # Write a line to the
