@@ -1,8 +1,8 @@
 module Guard
   class Drush
     class Runner
-      autoload :RunnerDrush4, 'guard/drush/runner_drush4'
-      autoload :RunnerDrush5, 'guard/drush/runner_drush5'
+      autoload :Drush4Task, 'guard/drush/drush4_task'
+      autoload :Drush5Task, 'guard/drush/drush5_task'
       attr_reader :drush_version
       attr_reader :alias
 
@@ -15,9 +15,9 @@ module Guard
         if drush_present?
           # Detect drush version
           if Gem::Version.new(drush_version) >= Gem::Version.new('5')
-            @drush_runner = RunnerDrush5.new(drush_alias, options);
+            @drush_task = Drush5Task.new(drush_alias, options);
           else
-            @drush_runner = RunnerDrush4.new(drush_alias, options);
+            @drush_task = Drush4Task.new(drush_alias, options);
           end
         else
           UI.error "Guard::Drush could not find drush. Please ensure it is in your PATH."
@@ -34,11 +34,11 @@ module Guard
           paths[i].gsub!(/"/, '\\"')
         }
         command = %Q{#{options[:command]} "#{paths.join('" "')}"}
-        @drush_runner.run(command, options);
+        @drush_task.run(command, options);
       end
 
       def stop
-        @drush_runner.close
+        @drush_task.close
       end
 
       # Validates that drush is available on the shell
