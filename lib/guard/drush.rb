@@ -27,7 +27,10 @@ module Guard
     # @raise [:task_has_failed] when start has failed
     def start
       if @runner.drush_present?
-        UI.info "Guard::Drush is running, with Drush #{@runner.drush_version}!"
+        msg = "Guard::Drush is running, with Drush #{@runner.drush_version}";
+        msg = msg + " #{@runner.drush_alias}" if @runner.drush_alias
+        msg = msg + '!'
+        UI.info msg
       end
     end
 
