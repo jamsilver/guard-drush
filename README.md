@@ -52,3 +52,17 @@ Available options:
 :drush_live_auto_reload => false  # default true. Pass drush_live argument through.
 :drush_live_timeout => 180        # default 1800. Pass drush_live argument through.
 ```
+## Drush live
+If [Drush live](http://drupal.org/project/drush_live) is present on the system guard-drush will use it (with the --auto-reload) option to speed up the response time of your drush command as much as possible. Install drush_live with the following command:
+
+``` bash
+drush dl drush_live
+```
+
+If your drush command does not need a bootstrapped Drupal or you are having problems with drush_live you can choose to not use it with the :drush_live => false option:
+
+``` ruby
+guard :drush, :command => 'status', :alias => '@sitealias', :drush_live => false do
+  # ...
+end
+```
