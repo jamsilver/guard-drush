@@ -34,6 +34,7 @@ module Guard
           paths[i].gsub!(/"/, '\\"')
         }
         command = %Q{#{options[:command]} "#{paths.join('" "')}"}
+        UI.info %Q{Running Drush command: #{command}}
         @drush_task.run(command, options);
       end
 
