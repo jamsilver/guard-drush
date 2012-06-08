@@ -2,24 +2,42 @@ module Guard
   class Drush
     class DrushBackgroundTask
 
-      def initialize(command)
-        if @pipe = IO.popen(command, "w+")
-          pipe = @pipe
-          pid = pipe.pid
+      def initialize(command, options = {})
+        options = {
+          :maintain_drush_output => true,
+        }.merge(options)
+
+        @pipe = IO.popen(command, "w+")
+        
+        if @pipe.pid
+          
+          # Spawn a seperate process just for monitoring our background task
+          # and printing its output to our own stdout.
+          @closing = false
+          if options[:maintain_drush_output]
+            @monitor_pid = fork do
+              while @pipe && !@pipe.closed?
+                if output=read
+                  puts output
+                end
+              end
+            end
+            Process.detach @monitor_pid
+          end
 
           # Cheeky ruby 'destructor' which makes absolute sure we end the
           # background process if it has problems
           ObjectSpace.define_finalizer(self, proc {
             # Indicates that close was not called
+            @closing = true
             begin
-              if @pipe && !@pipe.closed?
-                @pipe.puts('')
-                @pipe.puts('exit')
-                Process.detach pid
-                pipe.close
+              if @pipe
+                @pipe.close
               end
-              if pid
-                Process.kill 'TERM', pid
+              if @pipe.pid
+                Process.detach @pipe.pid
+                Process.kill 'KILL', @pipe.pid
+                Process.kill 'KILL', @monitor_pid
               end
             rescue
               # It's not uncommon for a long-running guard command to get a
@@ -31,11 +49,14 @@ module Guard
       end
 
       def close
-        if @pipe && !@pipe.closed?
-          @pipe.puts('')
-          @pipe.puts('exit')
-          Process.detach @pipe.pid
+        @closing = true
+        if @pipe
           @pipe.close
+        end
+        if @pipe.pid
+          Process.detach @pipe.pid
+          Process.kill 'KILL', @pipe.pid
+          Process.kill 'KILL', @monitor_pid
         end
       rescue
         # It's not uncommon for a long-running guard command to get a broken
@@ -50,10 +71,18 @@ module Guard
       end
 
       # Waits for timeout seconds and returns what was read in that time.
-      def read(timeout = 1)
+      def read(timeout = 60)
         if @pipe && !@pipe.closed?
-          if output = IO.select([@pipe], nil, nil, timeout)
-            return output[0]
+          ready_read, ready_write, = IO.select([@pipe], nil, nil, timeout)
+          return nil if ready_read.empty?
+          ready_read.each do |r|
+            buf = r.gets
+            if buf.length == 0
+                puts "The server connection is dead. Exiting."
+                exit
+            else
+                return buf
+            end
           end
         end
       end

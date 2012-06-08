@@ -27,7 +27,7 @@ module Guard
           cmd_parts << '--strip-aliases'
           cmd_parts << 'live'
         end
-        @bg = DrushBackgroundTask.new(cmd_parts.join(' '))
+        @bg = DrushBackgroundTask.new(cmd_parts.join(' '), @options)
       end
 
       def run(command, options = {})
