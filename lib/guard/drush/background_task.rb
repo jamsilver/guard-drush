@@ -4,40 +4,39 @@ module Guard
 
       def initialize(command, options = {})
         options = {
-          :maintain_drush_output => true,
+          :show_output => false,
         }.merge(options)
 
-        @pipe = IO.popen(command, "w+")
-        
-        if @pipe.pid
           
-          # Spawn a seperate process just for monitoring our background task
-          # and printing its output to our own stdout.
-          @closing = false
-          if options[:maintain_drush_output]
-            @monitor_pid = fork do
-              while @pipe && !@pipe.closed?
-                if output=read
-                  puts output
-                end
-              end
-            end
-            Process.detach @monitor_pid
+        # If we are running a suitable version of ruby and have specified that
+        # we want to see Drush output in the console run popen in a special way.
+        if options[:show_output]
+          if Gem::Version.new(RUBY_VERSION.scan(/^[0..9.]+/).first) >= Gem::Version.new('1.9')
+            UI.info "Running with advanced form"
+            require 'guard/drush/background_task_stdout'
+            @pipe = DrushPOpen.popen(command)
+          else
+            UI.info "At least Ruby version 1.9 is needed to support :show_output option (Current version: #{RUBY_VERSION})"
           end
+        end
+        
+        # A fallback simpler popen call which discards stdout.
+        if !@pipe
+          UI.info "Running with simple form"
+          @pipe = IO.popen(command, "w+")
+        end
 
+        if @pipe && !@pipe.closed?
+          Process.detach @pipe.pid
           # Cheeky ruby 'destructor' which makes absolute sure we end the
           # background process if it has problems
           ObjectSpace.define_finalizer(self, proc {
-            # Indicates that close was not called
-            @closing = true
             begin
               if @pipe
                 @pipe.close
               end
               if @pipe.pid
-                Process.detach @pipe.pid
-                Process.kill 'KILL', @pipe.pid
-                Process.kill 'KILL', @monitor_pid
+                Process.kill 'TERM', @pipe.pid
               end
             rescue
               # It's not uncommon for a long-running guard command to get a
@@ -49,14 +48,12 @@ module Guard
       end
 
       def close
-        @closing = true
-        if @pipe
+        if @pipe && !$pipe.closed?
+          @pipe.puts('exit')
           @pipe.close
         end
         if @pipe.pid
-          Process.detach @pipe.pid
-          Process.kill 'KILL', @pipe.pid
-          Process.kill 'KILL', @monitor_pid
+          Process.kill 'TERM', @pipe.pid
         end
       rescue
         # It's not uncommon for a long-running guard command to get a broken
@@ -71,12 +68,13 @@ module Guard
       end
 
       # Waits for timeout seconds and returns what was read in that time.
-      def read(timeout = 60)
+      def read
         if @pipe && !@pipe.closed?
-          ready_read, ready_write, = IO.select([@pipe], nil, nil, timeout)
-          return nil if ready_read.empty?
+          ready_read, ready_write, = IO.select([@pipe], nil, nil, 1)
+          return nil if !ready_read || ready_read.empty?
           ready_read.each do |r|
-            buf = r.gets
+            buf = ''
+            buf += r.readline while !r.eof
             if buf.length == 0
                 puts "The server connection is dead. Exiting."
                 exit
@@ -86,6 +84,7 @@ module Guard
           end
         end
       end
+
     end
   end
 end

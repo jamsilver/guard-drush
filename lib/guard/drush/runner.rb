@@ -8,13 +8,12 @@ module Guard
 
       def initialize(options = {})
         @options = {
-          :maintain_drush_output => true,
           :notification => true
         }.merge(options)
 
         if drush_present?
           # Detect drush version
-          if Gem::Version.new(drush_version) >= Gem::Version.new('5')
+          if Gem::Version.new(drush_version.scan(/^[0..9.]+/).first) >= Gem::Version.new('5')
             @drush_task = Drush5Task.new(drush_alias, options);
           else
             @drush_task = Drush4Task.new(drush_alias, options);
@@ -57,20 +56,6 @@ module Guard
       end
 
     private
-
-      def drush_command(paths, options)
-        cmd_parts = []
-        cmd_parts << "drush"
-        cmd_parts << "#{drush_alias}" if drush_alias
-        cmd_parts << "#{options[:command]}"
-        cmd_parts += paths
-        cmd_parts << "> /dev/null 2>&1" if !options[:maintain_drush_output]
-        cmd_parts.compact.join(' ');
-      end
-
-      def drush_command_exited_with_an_exception?
-        $?.exitstatus != 0
-      end
 
       def determine_drush_version
         version = `drush --version`
